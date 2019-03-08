@@ -76,6 +76,7 @@ class SetupManager:
     start_match_configuration = None
     agent_metadata_queue = None
     agent_state_queue = None
+    agent_action_queue = None
     extension = None
     sub_processes = []
 
@@ -109,6 +110,7 @@ class SetupManager:
         self.game_interface.load_interface()
         self.agent_metadata_queue = mp.Queue()
         self.agent_state_queue = mp.Queue()
+        self.agent_action_queue = mp.Queue()
         self.has_started = True
 
     def load_match_config(self, match_config: MatchConfig, bot_config_overrides={}):
@@ -203,7 +205,7 @@ class SetupManager:
                                         args=(self.quit_event, quit_callback, reload_request, self.parameters[0],
                                             str(self.start_match_configuration.player_configuration[0].name),
                                             self.teams[0], 0, self.python_files[0], self.agent_metadata_queue,
-                                            self.agent_state_queue, queue_holder, self.match_config))
+                                            (self.agent_state_queue, self.agent_action_queue), queue_holder, self.match_config))
                 else:
                     process = mp.Process(target=SetupManager.run_agent,
                                         args=(self.quit_event, quit_callback, reload_request, self.parameters[i],
@@ -240,7 +242,6 @@ class SetupManager:
                     self.logger.info(instructions)
 
             self.try_recieve_agent_metadata()
-            q.put("test")
 
     def try_recieve_agent_metadata(self):
         """

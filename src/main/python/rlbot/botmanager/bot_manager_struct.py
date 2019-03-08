@@ -18,7 +18,8 @@ class BotManagerStruct(BotManager):
                          match_config)
         self.rigid_body_tick = None
         if state_queue is not None:
-            self.state_queue = state_queue
+            self.state_queue = state_queue[0]
+            self.action_queue = state_queue[1]
 
     def prepare_for_run(self):
         # Set up shared memory map (offset makes it so bot only writes to its own input!) and map to buffer
@@ -38,7 +39,8 @@ class BotManagerStruct(BotManager):
 
     def call_agent(self, agent: BaseAgent, agent_class):
         self.state_queue.put(self.game_tick_packet)
-        controller_input = agent.get_output(self.game_tick_packet)
+        _ = agent.get_output(self.game_tick_packet)
+        controller_input = self.action_queue.get()
         if controller_input is None:
             get_logger("BotManager" + str(self.index))\
                 .error("Agent %s did not return any output.", str(agent_class.__name__))
