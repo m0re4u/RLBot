@@ -225,7 +225,7 @@ class SetupManager:
         self.game_interface.start_match()
         self.logger.info("Match has started")
 
-    def infinite_loop(self, q):
+    def infinite_loop(self):
         instructions = "Press 'r' to reload all agents, or 'q' to exit"
         self.logger.info(instructions)
         while not self.quit_event.is_set():
