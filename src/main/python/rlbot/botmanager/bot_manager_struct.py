@@ -9,7 +9,7 @@ from rlbot.utils.structures.rigid_body_struct import RigidBodyTick
 
 class BotManagerStruct(BotManager):
     def __init__(self, terminate_request_event, termination_complete_event, reload_request_event, bot_configuration,
-                 name, team, index, agent_class_wrapper, agent_metadata_queue, quick_chat_queue_holder, match_config):
+                 name, team, index, agent_class_wrapper, agent_metadata_queue, quick_chat_queue_holder, match_config, state_queue=None):
         """
         See documentation on BotManager.
         """
@@ -17,6 +17,8 @@ class BotManagerStruct(BotManager):
                          name, team, index, agent_class_wrapper, agent_metadata_queue, quick_chat_queue_holder,
                          match_config)
         self.rigid_body_tick = None
+        if state_queue is not None:
+            self.state_queue = state_queue
 
     def prepare_for_run(self):
         # Set up shared memory map (offset makes it so bot only writes to its own input!) and map to buffer
@@ -35,6 +37,7 @@ class BotManagerStruct(BotManager):
         return field_info
 
     def call_agent(self, agent: BaseAgent, agent_class):
+        self.state_queue.put(self.game_tick_packet)
         controller_input = agent.get_output(self.game_tick_packet)
         if controller_input is None:
             get_logger("BotManager" + str(self.index))\

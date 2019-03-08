@@ -3,10 +3,9 @@ from datetime import datetime, timedelta
 import msvcrt
 import multiprocessing as mp
 import os
-import queue
 import time
 import webbrowser
-
+import queue
 import psutil
 from rlbot import version
 from rlbot.base_extension import BaseExtension
@@ -75,10 +74,11 @@ class SetupManager:
     parameters = None
     start_match_configuration = None
     agent_metadata_queue = None
+    agent_state_queue = None
     extension = None
     sub_processes = []
 
-    def __init__(self):
+    def __init__(self, gym=False):
         self.logger = get_logger(DEFAULT_LOGGER)
         self.game_interface = GameInterface(self.logger)
         self.quick_chat_manager = QuickChatManager(self.game_interface)
@@ -89,6 +89,7 @@ class SetupManager:
         self.agent_metadata_map = {}
         self.ball_prediction_process = None
         self.match_config: MatchConfig = None
+        self.gym = gym
 
     def connect_to_game(self):
         if self.has_started:
@@ -106,6 +107,7 @@ class SetupManager:
         self.game_interface.inject_dll()
         self.game_interface.load_interface()
         self.agent_metadata_queue = mp.Queue()
+        self.agent_state_queue = mp.Queue()
         self.has_started = True
 
     def load_match_config(self, match_config: MatchConfig, bot_config_overrides={}):
@@ -195,11 +197,18 @@ class SetupManager:
                 quit_callback = mp.Event()
                 self.bot_reload_requests.append(reload_request)
                 self.bot_quit_callbacks.append(quit_callback)
-                process = mp.Process(target=SetupManager.run_agent,
-                                     args=(self.quit_event, quit_callback, reload_request, self.parameters[i],
-                                           str(self.start_match_configuration.player_configuration[i].name),
-                                           self.teams[i], i, self.python_files[i], self.agent_metadata_queue,
-                                           queue_holder, self.match_config))
+                if self.gym:
+                    process = mp.Process(target=SetupManager.run_agent,
+                                        args=(self.quit_event, quit_callback, reload_request, self.parameters[0],
+                                            str(self.start_match_configuration.player_configuration[0].name),
+                                            self.teams[0], 0, self.python_files[0], self.agent_metadata_queue,
+                                            self.agent_state_queue, queue_holder, self.match_config))
+                else:
+                    process = mp.Process(target=SetupManager.run_agent,
+                                        args=(self.quit_event, quit_callback, reload_request, self.parameters[i],
+                                            str(self.start_match_configuration.player_configuration[i].name),
+                                            self.teams[i], i, self.python_files[i], self.agent_metadata_queue,
+                                            queue_holder, self.match_config))
                 process.start()
                 self.sub_processes.append(process)
 
@@ -213,7 +222,7 @@ class SetupManager:
         self.game_interface.start_match()
         self.logger.info("Match has started")
 
-    def infinite_loop(self):
+    def infinite_loop(self, q):
         instructions = "Press 'r' to reload all agents, or 'q' to exit"
         self.logger.info(instructions)
         while not self.quit_event.is_set():
@@ -230,6 +239,7 @@ class SetupManager:
                     self.logger.info(instructions)
 
             self.try_recieve_agent_metadata()
+            q.put("test")
 
     def try_recieve_agent_metadata(self):
         """
@@ -315,6 +325,15 @@ class SetupManager:
         else:
             bm = BotManagerStruct(terminate_event, callback_event, reload_request, config_file, name, team, index,
                                   agent_class_wrapper, agent_telemetry_queue, queue_holder, match_config)
+        bm.run()
+
+    @staticmethod
+    def run_agent(terminate_event, callback_event, reload_request, config_file, name, team, index, python_file,
+                  agent_telemetry_queue, agent_state_queue, queue_holder, match_config: MatchConfig):
+
+        agent_class_wrapper = import_agent(python_file)
+        bm = BotManagerStruct(terminate_event, callback_event, reload_request, config_file, name, team, index,
+                                agent_class_wrapper, agent_telemetry_queue, queue_holder, match_config, agent_state_queue)
         bm.run()
 
     def kill_sub_processes(self):
