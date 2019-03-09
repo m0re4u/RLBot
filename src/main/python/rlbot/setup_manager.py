@@ -7,6 +7,7 @@ import time
 import webbrowser
 import queue
 import psutil
+import numpy as np
 from rlbot import version
 from rlbot.base_extension import BaseExtension
 from rlbot.botmanager.bot_manager_flatbuffer import BotManagerFlatbuffer
@@ -26,6 +27,8 @@ from rlbot.utils.structures.start_match_structures import MAX_PLAYERS
 from rlbot.utils.prediction import prediction_util
 from rlbot.utils.structures.game_interface import GameInterface
 from rlbot.utils.structures.quick_chats import QuickChatManager
+
+from rlbot.utils.game_state_util import GameState, BoostState, BallState, CarState, GameInfoState, Physics, Vector3, Rotator
 
 # By default, look for rlbot.cfg in the current working directory.
 DEFAULT_RLBOT_CONFIG_LOCATION = os.path.realpath('./rlbot.cfg')
@@ -224,6 +227,30 @@ class SetupManager:
     def start_match(self):
         self.game_interface.start_match()
         self.logger.info("Match has started")
+
+    def reset_game(self):
+        car_state = CarState(
+            Physics(
+                location=Vector3(0,-1000, 20),
+                velocity=Vector3(0, 0,0),
+                rotation=Rotator(0, 0.5 * np.pi, 0),
+                angular_velocity=Vector3(0, 0, 0)),
+            jumped=False,
+            double_jumped=False,
+            boost_amount=100
+        )
+        ball_state = BallState(
+            Physics(
+                location=Vector3(0, 0, 20),
+                velocity=Vector3(0, 0,0),
+                rotation=Rotator(0, 0.5 * np.pi, 0),
+                angular_velocity=Vector3(0, 0, 0)
+            )
+        )
+
+        game_state = GameState(cars={0: car_state}, ball=ball_state)
+        # game_state = GameState()
+        self.game_interface.set_game_state(game_state)
 
     def infinite_loop(self):
         instructions = "Press 'r' to reload all agents, or 'q' to exit"
